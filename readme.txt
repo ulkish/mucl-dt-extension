@@ -1,5 +1,5 @@
-=== Extension for Distributor - Multisite Cloner ===
-Contributors: hugomoran
+=== Color Scheme Field for Advanced Custom Fields PRO ===
+Contributors: Hugo Moran
 Tags: multisite cloner, mucl, distributor
 Requires at least: 3.6.0
 Tested up to: 4.9.0
@@ -13,7 +13,7 @@ Fixes integration between cloned sites and the Distributor plugin.
 
 Since an original site would not know about any Distributor connections
 in the duplicate of a site containing connections, this functions connects the original
-with the latest created clone.
+with the latest created site.
 
 = Compatibility =
 
@@ -25,12 +25,9 @@ This plugin requires:
 
 1. Copy the `mucl-dt-extension` folder into your `wp-content/plugins` folder
 2. Activate the plugin via the plugins admin page
-3. Now the sites you clone will carry any Distributor connections
+3. Read the description above for usage instructions
 
 == Changelog ==
 
-= 1.0.1 =
+= 1.0.0 =
 * Initial Release.
-
-= 1.1.0 =
-* Fixed bug that made the plugin ineffective on custom post types.

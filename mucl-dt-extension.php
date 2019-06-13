@@ -1,9 +1,9 @@
 <?php
 /**
-* Plugin Name: Extension for Distributor - Multisite Cloner
-* Plugin URI: https://wordpress.org/plugins/mucl-dt-extension
+* Plugin Name: Multisite Cloner - Distributor Extension
+* Plugin URI: https://wordpress.org/plugins/multisite-cloner
 * Description: Fixes integration between cloned sites and the Distributor plugin.
-* Version: 1.0
+* Version: 1.2.0
 * Author: Hugo Moran
 * Author URI: http://tipit.net
 * License: License: GPL2+
@@ -12,44 +12,104 @@
 
 
 // Since an original site would not know about any Distributor connections
-// in the duplicate of a site containing connections, this functions connects the original
-// with the latest created clone.
-function mucl_add_dt_connections( $blog_site ) {
+// in the duplicate of a duplicate, this plugin connects the original
+// with the latest created site.
 
-
-    // Get site IDs
-    $latest_clone_site_id = $blog_site;
-    if ( isset($_POST['wpmuclone_default_blog']) ) {
-        $cloned_site_id = intval($_POST['wpmuclone_default_blog']);
-    } else {
-        $cloned_site_id = get_option('wpmuclone_default_blog');
-    }
-
-    // Search through cloned site for distributed posts
-    switch_to_blog( $cloned_site_id );
-    $args = array(
-        'meta_key' => 'dt_original_blog_id',
-        'post_type' => 'any'
-    );
-    $posts_query = new WP_Query( $args );
-    $distributed_posts = $posts_query->posts;
-
-    foreach ( $distributed_posts as $post ){
-
-        //Find its original blog ID, original post ID, then add the new dt connection.
-        $original_blog_id = get_post_meta( $post->ID, 'dt_original_blog_id' )[0];
-        $original_post_id = get_post_meta( $post->ID, 'dt_original_post_id' )[0];
-
-        switch_to_blog( $original_blog_id );
-
-        $dt_connection = get_post_meta( $original_post_id, 'dt_connection_map' );
-
-        $dt_connection[0]['internal'][$latest_clone_site_id] = $dt_connection[0]['internal'][$cloned_site_id];
-
-        update_post_meta( $original_post_id, 'dt_connection_map', $dt_connection[0] );
-        restore_current_blog();
-    }
-
-    restore_current_blog();
+add_action('wpmu_new_blog', 'mucldt_add_dt_connections', 2, 1 );
+add_action( 'admin_menu', 'mucldt_create_page' );
+function mucldt_create_page() {
+	add_management_page(  'Distributor Map Fixer Page',
+					'Distributor Map Fixer',
+					'manage_options',
+					'mucl-dt-extension/mucl-dt-extension.php',
+					'mucldt_admin_page'
+					);
 }
-add_action('wpmu_new_blog', 'mucl_add_dt_connections', 2, 1  );
+
+function mucldt_add_dt_connections( $latest_clone_site_id ) {
+	switch_to_blog( $latest_clone_site_id );
+	// Search through site for distributed posts
+	$args = array(
+		'meta_key' => 'dt_original_blog_id',
+		'post_type' => 'any',
+		'posts_per_page' => -1,
+	);
+	$posts_query = new WP_Query( $args );
+	$distributed_posts = $posts_query->posts;
+
+	// Getting the original blog ID and post ID from every distributed post.
+	$og_blog_and_post_ids = array();
+	foreach ( $distributed_posts as $post ) {
+		$original_blog_id = get_post_meta( $post->ID, 'dt_original_blog_id' )[0];
+		$original_post_id = get_post_meta( $post->ID, 'dt_original_post_id' )[0];
+		if ( !isset( $og_blog_and_post_ids[$original_blog_id] ) ) {
+			$og_blog_and_post_ids[$original_blog_id] = array();
+		}
+		array_push( $og_blog_and_post_ids[$original_blog_id],
+					array(
+						'og_post_id' => $original_post_id,
+						'post_id'   => $post->ID,
+					));
+	}
+
+	foreach ( $og_blog_and_post_ids as $blog_id => $og_post_id) {
+		// Switching to original blog to create and add new site connection.
+		switch_to_blog( $blog_id );
+		foreach ( $og_post_id as $post ) {
+			$dt_connection = get_post_meta( $post['og_post_id'], 'dt_connection_map' );
+			if ( isset( $dt_connection ) ) {
+				$dt_connection[0]['internal'][$latest_clone_site_id] = array(
+					'post_id' => $post['post_id'],
+					'time' => time(),
+				);
+				update_post_meta( $post['og_post_id'], 'dt_connection_map', $dt_connection[0] );
+			}
+		}
+	}
+	restore_current_blog();
+}
+
+function mucldt_admin_page() {
+	$network_sites = get_sites();
+	$plugin_url = admin_url(
+		'admin.php?page=mucl-dt-extension%2Fmucl-dt-extension.php');
+	?>
+	<div class="wrap">
+		<h2>Distributor Map Fixer</h2>
+		<p>Since an original site would not know about any Distributor
+		 connections in the duplicate of a site containing connections,
+		 this fix<br>connects the original with the latest created clone.
+		</p>
+		<form action="<?php echo $plugin_url ?>" method="POST">
+			<table class="form-table">
+			<tr>
+				<th scope="row"><label for="latest">Site to fix:</label></th>
+				<td>
+					<select name="latest" id="latest">
+					<?php foreach ($network_sites as $site) {
+							echo '<option value="'
+							. $site->blog_id
+							. '" name="'
+							. $site->domain
+							. '"' . '>'
+							. $site->domain
+							. '</option>';
+							}
+					?>
+					</select>
+				</td>
+			</tr>
+			</table>
+			<p class="submit">
+				<input type="submit" class="button button-primary" value="Fix it">
+			</p>
+		</form>
+	</div>
+	<?php
+
+	if( isset($_POST['latest']) && $_SERVER['REQUEST_METHOD'] == "POST") {
+		mucldt_add_dt_connections( $_POST['latest'] );
+		echo "Fix succesfully executed.";
+	} else {  }
+}
+
