@@ -16,14 +16,17 @@
 // with the latest created site.
 
 add_action('wpmu_new_blog', 'mucldt_add_dt_connections', 2, 1 );
-add_action( 'admin_menu', 'mucldt_create_page' );
+add_action( 'network_admin_menu', 'mucldt_create_page' );
+
 function mucldt_create_page() {
-	add_management_page(  'Distributor Map Fixer Page',
-					'Distributor Map Fixer',
-					'manage_options',
-					'mucl-dt-extension/mucl-dt-extension.php',
-					'mucldt_admin_page'
-					);
+		add_submenu_page(
+		'settings.php',
+		'Distributor Map Fixer',
+		'Distributor Map Fixer',
+		'manage_options',
+		'mucl-dt-extension/mucl-dt-extension.php',
+		'mucldt_admin_page'
+	);
 }
 
 function mucldt_add_dt_connections( $latest_clone_site_id ) {
@@ -67,12 +70,14 @@ function mucldt_add_dt_connections( $latest_clone_site_id ) {
 		}
 	}
 	restore_current_blog();
+
+	return true;
 }
 
 function mucldt_admin_page() {
 	$network_sites = get_sites();
 	$plugin_url = admin_url(
-		'admin.php?page=mucl-dt-extension%2Fmucl-dt-extension.php');
+		'network/settings.php?page=mucl-dt-extension%2Fmucl-dt-extension.php');
 	?>
 	<div class="wrap">
 		<h2>Distributor Map Fixer</h2>
@@ -108,8 +113,9 @@ function mucldt_admin_page() {
 	<?php
 
 	if( isset($_POST['latest']) && $_SERVER['REQUEST_METHOD'] == "POST") {
-		mucldt_add_dt_connections( $_POST['latest'] );
-		echo "Fix succesfully executed.";
+		if ( mucldt_add_dt_connections( $_POST['latest'] ) ) {
+			echo "Fix succesfully executed.";
+		} else { echo "There was an error executing the fix."; }
 	} else {  }
 }
 
